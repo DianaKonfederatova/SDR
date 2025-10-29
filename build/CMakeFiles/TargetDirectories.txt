@@ -1,0 +1,3 @@
+/home/diana/SDR/build/CMakeFiles/main.dir
+/home/diana/SDR/build/CMakeFiles/edit_cache.dir
+/home/diana/SDR/build/CMakeFiles/rebuild_cache.dir

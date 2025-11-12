@@ -117,11 +117,21 @@ int main(){
             // Заполняем весь буфер TX сэмплами
             for (size_t i = 0; i < 2 * tx_mtu; i += 2)
             {
-            // ЗДЕСЬ БУДУТ ВАШИ СЭМПЛЫ
-            double t = (double)(i / 2) / tx_mtu * 2.0 - 1.0;
-            double triangle_value = -(1.0 - fabs(t)) * (fabs(t) < 1.0);
-            tx_buff[i] = (int16_t)(triangle_value * 16000);   // I - треугольник
-            tx_buff[i+1] = (int16_t)(triangle_value * 16000); // Q = 0
+                int A=1000;
+                int step=50;
+                int znach;
+                if(i<10){
+                    znach=A+i*step;
+
+                }
+                else{
+                    znach=A-i*step;
+                }
+
+                // ЗДЕСЬ БУДУТ ВАШИ СЭМПЛЫ
+                tx_buff[i] = znach << 4;   // I компонента
+                tx_buff[i+1] = znach << 4; // Q
+
                 
             }
             // Устанавливаем временную метку для передачи

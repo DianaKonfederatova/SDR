@@ -3,7 +3,7 @@ import librosa
 from pydub import AudioSegment
 
 def mp3_to_pcm(mp3_file, pcm_file):
-    try:   
+    try:    
         # Загружаем MP3
         audio, sr = librosa.load(mp3_file, sr=44100, mono=True)
         # Конвертируем в 16-битный PCM
@@ -34,5 +34,6 @@ def pcm_to_mp3(pcm_file, mp3_file):
     except Exception as ex:
         print("Ошибка:", ex)
 
+# Использование:
 mp3_to_pcm("music.mp3", "audio.pcm")
 pcm_to_mp3("audio.pcm", "new_music.mp3")

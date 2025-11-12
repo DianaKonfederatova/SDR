@@ -4,7 +4,6 @@
 #include <stdlib.h>            //free
 #include <stdint.h>            //определяет целочисленные типы фиксированного размера (например, int32_t) и макросы
 #include <complex.h>           //функции для выполнения операций, таких как сложение, вычитание и умножение, с комплексными числами. 
-#include <math.h>              //для изменения форм сигнала
 
 int main(){
     /*Физические бубуйни*/
@@ -86,26 +85,28 @@ int main(){
     // Количество итерация чтения из буфера
     size_t iteration_count = 10;
 
-    /*int flags=0;        // flags set by receive operation
-    long long timeNs=0; //timestamp for receive buffer*/
+    int flags=0;        // flags set by receive operation
+    long long timeNs=0; //timestamp for receive buffer
     
 
     // Начинается работа с получением и отправкой сэмплов
     for (size_t buffers_read = 0; buffers_read < iteration_count; buffers_read++)
     {
-        int flags=0;        // flags set by receive operation
-        long long timeNs=0; //timestamp for receive buffer
         //читаем rx данные
-        void *rx_buffs[] = {rx_buffer};
+        void *rx_buffs[] = {rx_buffer};//каждый элемент этого массива есть указатель
 
+    
+        // считали буффер RX, записали его в rx_buffer
         int sr = SoapySDRDevice_readStream(sdr, rxStream, rx_buffs, rx_mtu, &flags, &timeNs, timeoutUs);
-        if (sr < 0){
-            printf("Ошибка чтения: %s\n", SoapySDR_errToStr(sr));
+        if (sr<0){
+            printf("Ошибка чтения\n",SoapySDR_errToStr(sr));
             return 1;
         }
         //запись файла
-        fwrite(rx_buffer, sizeof(int16_t), sr * 2, rx_file);
-        fflush(rx_file);
+        fwrite(rx_buffer, sizeof(int16_t), sr*2, rx_file);
+        //закрытие файла
+        fclose(rx_file);
+        printf("Файл закрыт\n");
 
         // Смотрим на количество считаных сэмплов, времени прихода и разницы во времени с чтением прошлого буфера
         printf("Buffer: %lu - Samples: %i, Flags: %i, Time: %lli, TimeDiff: %lli\n", buffers_read, sr, flags, timeNs, timeNs - last_time);  
@@ -114,39 +115,62 @@ int main(){
         //если вторая итерация, то готовим и отправ. rx
         if (buffers_read==2){
             printf("Начинается передача tx\n");
-            // Заполняем весь буфер TX сэмплами
-            for (size_t i = 0; i < 2 * tx_mtu; i += 2)
+            // ЗДЕСЬ БУДУТ ВАШИ СЭМПЛЫ
+            tx_buff[i] = 1500 << 4;   // I
+            tx_buff[i+1] = 1500 << 4; // Q
+            //заполнение tx_buff значениями сэмплов первые 16 бит - I, вторые 16 бит - Q.
+            /*for (int i = 0; i < 2 * tx_mtu; i+=2)
             {
             // ЗДЕСЬ БУДУТ ВАШИ СЭМПЛЫ
-            double t = (double)(i / 2) / tx_mtu * 2.0 - 1.0;
-            double triangle_value = -(1.0 - fabs(t)) * (fabs(t) < 1.0);
-            tx_buff[i] = (int16_t)(triangle_value * 16000);   // I - треугольник
-            tx_buff[i+1] = (int16_t)(triangle_value * 16000); // Q = 0
-                
-            }
-            // Устанавливаем временную метку для передачи
-            long long tx_time = timeNs + (4 * 1000 * 1000); // на 4 мс в будущее
+            tx_buff[i] = 1500 << 4;   // I
+            tx_buff[i+1] = 1500 << 4; // Q
+            }*/
+            //подгатавливаем фиксированные байты
+            for(size_t i = 0; i < 2; i++)
+            {
+            tx_buff[0 + i] = 0xffff;
+            // 8 x timestamp words
+            tx_buff[10 + i] = 0xffff;
+            }       
+            //подготавливаем фиксированные байты в буфере передачи
+            //передаем последовательность FFFF FFFF [TS_0]00 [TS_1]00 [TS_2]00 [TS_3]00 [TS_4]00 [TS_5]00 [TS_6]00 [TS_7]00 FFFF FFFF
+            //это флаг (FFFF FFFF), за которым следует 64-битная метка времени, разделенная на 8 байтов и упакованная в младший бит каждого слова ЦАП.
+            //выборки ЦАП выровнены по левому краю на 12 бит, поэтому каждый байт сдвигается влево на свое место
             
-            // Отправляем данные
+            // Переменная для времени отправки сэмплов относительно текущего приема
+            long long tx_time = timeNs + (4 * 1000 * 1000); // на 4 \[мс\] в будущее
+        
+            // Добавляем время, когда нужно передать блок tx_buff, через tx_time -наносекунд
+            for(size_t i = 0; i < 8; i++)
+            {
+            uint8_t tx_time_byte = (tx_time >> (i * 8)) & 0xff;
+            tx_buff[2 + i] = tx_time_byte << 4;
+            }
+             // Здесь отправляем наш tx_buff массив
             void *tx_buffs[] = {tx_buff};
-            flags = SOAPY_SDR_HAS_TIME;
-            int st = SoapySDRDevice_writeStream(sdr, txStream, tx_buffs, tx_mtu, &flags, tx_time, timeoutUs);
             
-            if (st < 0){
-                printf("TX ошибка: %s\n", SoapySDR_errToStr(st));
+            //if( (buffers_read == 2) ){
+                printf("buffers_read: %d\\n", buffers_read);
+            flags = SOAPY_SDR_HAS_TIME;
+            int st = SoapySDRDevice_writeStream(sdr, txStream, (const void * const*)tx_buffs, tx_mtu, &flags, tx_time, timeoutUs);
+            if (st<0){
+                printf("tx ошибка\n");
             }
-            else if ((size_t)st != tx_mtu) {
-                printf("TX Failed: %i\n", st);
+            else if ((size_t)st != tx_mtu)
+            {
+                printf("TX Failed: %i\\n", st);
             }
-            else {
+            else
+            {
                 printf("TX успешно отправлен\n");
             }
-        }
-    }
-    // Закрываем файл только после завершения всех итераций
-    fclose(rx_file);
-    printf("Файл закрыт\n");
 
+            //}
+        
+        }
+
+
+    }
     //stop streaming
     SoapySDRDevice_deactivateStream(sdr, rxStream, 0, 0);
     SoapySDRDevice_deactivateStream(sdr, txStream, 0, 0);
@@ -158,15 +182,7 @@ int main(){
     //cleanup device handle
     SoapySDRDevice_unmake(sdr);
 
-    // Освобождаем память
-    free(tx_buff);
-    free(rx_buffer);
-
     return 0;
+
+
 }
-
-        
-        
-
-
-

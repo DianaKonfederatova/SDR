@@ -184,4 +184,5 @@ CMakeFiles/main.dir/main.cpp.o: /home/diana/SDR/main.cpp \
  /usr/include/c++/13/bits/istream.tcc \
  /usr/include/c++/13/bits/sstream.tcc /usr/include/complex.h \
  /usr/include/x86_64-linux-gnu/bits/mathdef.h \
- /usr/include/x86_64-linux-gnu/bits/cmathcalls.h
+ /usr/include/x86_64-linux-gnu/bits/cmathcalls.h \
+ /usr/include/c++/13/math.h

@@ -4,7 +4,6 @@
 #include <stdlib.h>            //free
 #include <stdint.h>            //определяет целочисленные типы фиксированного размера (например, int32_t) и макросы
 #include <complex.h>           //функции для выполнения операций, таких как сложение, вычитание и умножение, с комплексными числами. 
-#include <math.h>              //для изменения форм сигнала
 
 int main(){
     /*Физические бубуйни*/
@@ -86,15 +85,13 @@ int main(){
     // Количество итерация чтения из буфера
     size_t iteration_count = 10;
 
-    /*int flags=0;        // flags set by receive operation
-    long long timeNs=0; //timestamp for receive buffer*/
+    int flags=0;        // flags set by receive operation
+    long long timeNs=0; //timestamp for receive buffer
     
 
     // Начинается работа с получением и отправкой сэмплов
     for (size_t buffers_read = 0; buffers_read < iteration_count; buffers_read++)
     {
-        int flags=0;        // flags set by receive operation
-        long long timeNs=0; //timestamp for receive buffer
         //читаем rx данные
         void *rx_buffs[] = {rx_buffer};
 
@@ -117,14 +114,11 @@ int main(){
             // Заполняем весь буфер TX сэмплами
             for (size_t i = 0; i < 2 * tx_mtu; i += 2)
             {
-            // ЗДЕСЬ БУДУТ ВАШИ СЭМПЛЫ
-            double t = (double)(i / 2) / tx_mtu * 2.0 - 1.0;
-            double triangle_value = -(1.0 - fabs(t)) * (fabs(t) < 1.0);
-            tx_buff[i] = (int16_t)(triangle_value * 16000);   // I - треугольник
-            tx_buff[i+1] = (int16_t)(triangle_value * 16000); // Q = 0
-                
+                // ЗДЕСЬ БУДУТ ВАШИ СЭМПЛЫ
+                tx_buff[i] = 1500 << 4;   // I компонента
+                tx_buff[i+1] = 1500 << 4; // Q
             }
-            // Устанавливаем временную метку для передачи
+         // Устанавливаем временную метку для передачи
             long long tx_time = timeNs + (4 * 1000 * 1000); // на 4 мс в будущее
             
             // Отправляем данные

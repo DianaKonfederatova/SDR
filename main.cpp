@@ -6,6 +6,48 @@
 #include <complex.h>           //функции для выполнения операций, таких как сложение, вычитание и умножение, с комплексными числами. 
 #include <math.h>              //для изменения форм сигнала
 
+//функция чтения pcm файлов
+int16_t *read_pcm(const char *filename, size_t *sample_count)
+{
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL) {
+        printf("Не удалось открыть файл %s\n", filename);
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    printf("file_size = %ld\n", file_size);
+    
+    if (file_size <= 0) {
+        printf("Файл пустой!\n");
+        fclose(file);
+        return NULL;
+    }
+    
+    int16_t *samples = (int16_t *)malloc(file_size);
+    if (samples == NULL) {
+        printf("Ошибка выделения памяти\n");
+        fclose(file);
+        return NULL;
+    }
+
+    *sample_count = file_size / sizeof(int16_t);
+    size_t sf = fread(samples, sizeof(int16_t), *sample_count, file);
+
+    if (sf != *sample_count) {
+        printf("Ошибка чтения файла!\n");
+        free(samples);
+        fclose(file);
+        return NULL;
+    }
+
+    fclose(file);
+    printf("Успешно прочитано %lu семплов\n", *sample_count);
+    return samples;
+}
+
 int main(){
     /*Физические бубуйни*/
     //инициализация устройства
@@ -44,8 +86,8 @@ int main(){
     // Инициализация количества каналов RX\\TX (в AdalmPluto он один, нулевой)
     size_t channels[] = {0};
     // Настройки усилителей на RX\\TX
-    SoapySDRDevice_setGain(sdr, SOAPY_SDR_RX, channels[0], 10.0); // Чувствительность приемника
-    SoapySDRDevice_setGain(sdr, SOAPY_SDR_TX, channels[0], -90.0);// Усиление передатчика
+    SoapySDRDevice_setGain(sdr, SOAPY_SDR_RX, channels[0], 40.0); // Чувствительность приемника
+    SoapySDRDevice_setGain(sdr, SOAPY_SDR_TX, channels[0], -7.0); // Усиление передатчика
 
     //инициализация потоков, передача saple (выявление количеств элементов в массиве)
     size_t channel_count = sizeof(channels) / sizeof(channels[0]);
@@ -84,12 +126,15 @@ int main(){
     const long  timeoutUs = 400000;
     long long last_time = 0;
     // Количество итерация чтения из буфера
-    size_t iteration_count = 10;
+    size_t iteration_count = 1000;
 
     /*int flags=0;        // flags set by receive operation
     long long timeNs=0; //timestamp for receive buffer*/
     
-
+    // Чтение PCM файла один раз в начале
+    static int16_t *pcm_samples = NULL;
+    static size_t pcm_sample_count = 0;
+    static size_t pcm_position = 0;
     // Начинается работа с получением и отправкой сэмплов
     for (size_t buffers_read = 0; buffers_read < iteration_count; buffers_read++)
     {
@@ -111,6 +156,48 @@ int main(){
         printf("Buffer: %lu - Samples: %i, Flags: %i, Time: %lli, TimeDiff: %lli\n", buffers_read, sr, flags, timeNs, timeNs - last_time);  
         //обнавляем время
         last_time = timeNs;
+
+     
+
+
+
+if (pcm_samples == NULL) {
+    pcm_samples = read_pcm("build/1.pcm", &pcm_sample_count);
+    if (pcm_samples == NULL) return 1;
+    printf("Всего семплов для передачи: %lu\n", pcm_sample_count);
+}
+
+// Передаем следующий блок на КАЖДОЙ итерации после старта
+if (buffers_read >= 2 && pcm_position < pcm_sample_count) {
+    // Сколько семплов осталось передать
+    size_t samples_remaining = pcm_sample_count - pcm_position;
+    size_t samples_to_send = (samples_remaining < tx_mtu) ? samples_remaining : tx_mtu;
+
+    // Заполняем буфер I/Q данными
+    for (size_t i = 0; i < samples_to_send; i++) {
+        tx_buff[2*i] = pcm_samples[pcm_position + i];   // I - аудиоданные
+        tx_buff[2*i + 1] = 0;                          // Q = 0
+    }
+
+    // Передаем данные
+    long long tx_time = timeNs + (4 * 1000 * 1000);
+    void *tx_buffs[] = {tx_buff};
+    flags = SOAPY_SDR_HAS_TIME;
+    int st = SoapySDRDevice_writeStream(sdr, txStream, tx_buffs, samples_to_send, &flags, tx_time, timeoutUs);
+
+    if (st > 0) {
+        pcm_position += st;
+        printf("TX: %d семплов (прогресс: %lu/%lu)\n", st, pcm_position, pcm_sample_count);
+    }
+
+    // Если передали все - освобождаем память
+    if (pcm_position >= pcm_sample_count) {
+        free(pcm_samples);
+        pcm_samples = NULL;
+        printf("Передача завершена!\n");
+    }
+}
+        /*
         //если вторая итерация, то готовим и отправ. rx
         if (buffers_read==2){
             printf("Начинается передача tx\n");
@@ -142,6 +229,7 @@ int main(){
                 printf("TX успешно отправлен\n");
             }
         }
+        */
     }
     // Закрываем файл только после завершения всех итераций
     fclose(rx_file);
@@ -158,10 +246,11 @@ int main(){
     //cleanup device handle
     SoapySDRDevice_unmake(sdr);
 
+    /*
     // Освобождаем память
     free(tx_buff);
     free(rx_buffer);
-
+    */
     return 0;
 }
 

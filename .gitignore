@@ -1,0 +1,89 @@
+# Билд-CMake #
+/build/
+/CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.cmake
+CMakeConfigureLog.yaml
+CMakeDirectoryInformation.cmake
+CMakeRuleHashes.txt
+CMakeScratch/
+Makefile2
+Makefile.cmake
+pkgRedirects
+TargetDirectories.txt
+cmake_uninstall.cmake
+install_manifest.txt
+*.a
+*.so
+*.dll
+*.lib
+
+# Файлы компиляции #
+*.o
+*.o.d
+*.obj
+*.out
+*.bin
+*.exe
+/main
+
+# Временные файлы сборки #
+/build.make
+/cmake_clean.cmake
+/compiler_depend.*
+/depend.make
+/DependInfo.cmake
+/flags.make
+/link.txt
+/progress.make
+/progress.marks
+*.make
+
+# SDR библиотеки #
+/SoapySDR/
+/SoapyPlutoSDR/
+/PlutoSDR/
+/libiio/
+/libad9361/
+/iio-oscilloscope/
+
+# Python кэш #
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+.env
+.venv
+venv/
+env/
+
+# Системные файлы #
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.directory
+Desktop.ini
+$RECYCLE.BIN/
+
+
+# IDE и редакторы #
+.vscode/
+.idea/
+*.iml
+*.iws
+*.sublime-*
+sftp-config.json
+
+# Резервные копии #
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# Логи #
+*.log
+logs/

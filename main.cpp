@@ -5,6 +5,8 @@
 #include <stdint.h>            //определяет целочисленные типы фиксированного размера (например, int32_t) и макросы
 #include <complex.h>           //функции для выполнения операций, таких как сложение, вычитание и умножение, с комплексными числами. 
 #include <math.h>              //для изменения форм сигнала
+#include <cstdlib>
+#include <ctime>   // для time()
 
 //BPSK
 void bpsk(int massive[], int massive_i[], int massive_q[], int *size)
@@ -12,11 +14,11 @@ void bpsk(int massive[], int massive_i[], int massive_q[], int *size)
     int actual_size = *size;
     for (int i = 0; i < actual_size; i++) {
         if (massive[i] == 0) {
-            massive_i[i] = 1;   // I = +1 для бита 0
-            massive_q[i] = 0;   // Q всегда 0
+            massive_i[i] = 1.0;   // I = +1 для бита 0
+            massive_q[i] = 0.0;   // Q всегда 0
         } else {
-            massive_i[i] = -1;  // I = -1 для бита 1
-            massive_q[i] = 0;   // Q всегда 0
+            massive_i[i] = -1.0;  // I = -1 для бита 1
+            massive_q[i] = 0.0;   // Q всегда 0
         }
     }
 }
@@ -157,6 +159,7 @@ int main(){
     //назначили количество переменных в массиве и размер одного символа (10 семлов)
     int peremen=100;
     int massive[peremen];
+    srand(time(NULL));
     int symb_size=10;
     int size=sizeof(massive)/sizeof(massive[0]);
     int massive_i[peremen];
@@ -164,14 +167,32 @@ int main(){
     int size_exaggerated=(sizeof(massive)/sizeof(massive[0]))*10;
     int massive_bigger[size_exaggerated];
     int zero_count=10;
+   
     //создание массива бит для BPSK
     for (int i=0; i<peremen; i++){
         massive[i]=rand()%2;//берем 0 или 1
     }
+    for (int i=0; i<40; i++){
+        printf("%d", massive[i]);
+    }
+    printf("\n");
     
     bpsk(massive, massive_i, massive_q, &peremen);
+    for (int i=0; i<40; i++){
+        printf("%d", massive_i[i]);
+    }
+    printf("\n");
+
+    for (int i=0; i<40; i++){
+        printf("%d", massive_q[i]);
+    }
+    printf("\n");
 
     upsampling(massive_i, &size, massive_bigger, &size_exaggerated, &zero_count);
+    for (int i=0; i<40; i++){
+        printf("%d", massive_bigger[i]);
+    }
+    printf("\n");
 
 
     FILE *rx_file=fopen("rxdata.pcm","wb");

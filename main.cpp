@@ -6,6 +6,44 @@
 #include <complex.h>           //функции для выполнения операций, таких как сложение, вычитание и умножение, с комплексными числами. 
 #include <math.h>              //для изменения форм сигнала
 
+//BPSK
+void bpsk(int massive[], int massive_i[], int massive_q[], int *size)
+{
+    int actual_size = *size;
+    for (int i = 0; i < actual_size; i++) {
+        if (massive[i] == 0) {
+            massive_i[i] = 1;   // I = +1 для бита 0
+            massive_q[i] = 0;   // Q всегда 0
+        } else {
+            massive_i[i] = -1;  // I = -1 для бита 1
+            massive_q[i] = 0;   // Q всегда 0
+        }
+    }
+}
+
+//функция для upsamling
+void upsampling(int massive[], int *size, int massive_bigger[], int *size_exaggerated, int *zero_count)
+{
+    int pozition = 0;
+    int actual_size = *size;  //разыменовываем указатель
+    
+    for (int i = 0; i < actual_size; i++) {
+        massive_bigger[pozition] = massive[i];
+        pozition++;
+        
+        if (i < actual_size - 1) {
+            for (int z = 0; z < *zero_count; z++) {
+                massive_bigger[pozition] = 0;
+                pozition++;
+            }
+        }
+    }
+    
+    *size_exaggerated = pozition;  //возвращаем новый размер
+}
+
+
+
 //функция чтения pcm файлов
 int16_t *read_pcm(const char *filename, size_t *sample_count)
 {
@@ -116,6 +154,26 @@ int main(){
     int16_t tx_buff[2*tx_mtu];
     int16_t rx_buffer[2*rx_mtu];
 
+    //назначили количество переменных в массиве и размер одного символа (10 семлов)
+    int peremen=100;
+    int massive[peremen];
+    int symb_size=10;
+    int size=sizeof(massive)/sizeof(massive[0]);
+    int massive_i[peremen];
+    int massive_q[peremen];
+    int size_exaggerated=(sizeof(massive)/sizeof(massive[0]))*10;
+    int massive_bigger[size_exaggerated];
+    int zero_count=10;
+    //создание массива бит для BPSK
+    for (int i=0; i<peremen; i++){
+        massive[i]=rand()%2;//берем 0 или 1
+    }
+    
+    bpsk(massive, massive_i, massive_q, &peremen);
+
+    upsampling(massive_i, &size, massive_bigger, &size_exaggerated, &zero_count);
+
+
     FILE *rx_file=fopen("rxdata.pcm","wb");
     if (rx_file==0){
         printf("Ошибка, rxdata не создается файл\n");
@@ -157,17 +215,32 @@ int main(){
         //обнавляем время
         last_time = timeNs;
 
+// Заменяем загрузку PCM на использование massive_bigger
+if (pcm_samples == NULL) {
+    // Выделяем память и копируем наш BPSK сигнал
+    pcm_samples = (int16_t*)malloc(size_exaggerated*sizeof(int16_t));
+    if (!pcm_samples) return 1;
+    
+    // Копируем данные из massive_bigger в pcm_samples
+    for (size_t i = 0; i < (size_t)size_exaggerated; i++) {
+        // Масштабируем значения из [-1, 1] в [-16000, 16000]
+        pcm_samples[i] = massive_bigger[i] * 16000;
+    }
+    
+    pcm_sample_count = size_exaggerated;
+    printf("BPSK сигнал с апсемплингом: %lu семплов\n", pcm_sample_count);
+}
      
 
 
-
+/*
 if (pcm_samples == NULL) {
     pcm_samples = read_pcm("build/1.pcm", &pcm_sample_count);
     if (pcm_samples == NULL) return 1;
     printf("Всего семплов для передачи: %lu\n", pcm_sample_count);
 }
-
-// Передаем следующий блок на КАЖДОЙ итерации после старта
+*/
+// Передаем следующий блок на каждой итерации после старта
 if (buffers_read >= 2 && pcm_position < pcm_sample_count) {
     // Сколько семплов осталось передать
     size_t samples_remaining = pcm_sample_count - pcm_position;
